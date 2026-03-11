@@ -12,7 +12,6 @@ import ForgotPassword from './pages/ForgotPassword';
 import Register from './pages/Register';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
-import Payment from './pages/Payment';
 import OrderSuccess from './pages/OrderSuccess';
 import BookingPage from './pages/BookingPage';
 import MyBookings from './pages/MyBookings';
@@ -46,7 +45,6 @@ function App() {
                 
                 {/* Protected Routes */}
                 <Route path="/checkout" element={<PrivateRoute><Checkout /></PrivateRoute>} />
-                <Route path="/payment" element={<PrivateRoute><Payment /></PrivateRoute>} />
                 <Route path="/order-success" element={<PrivateRoute><OrderSuccess /></PrivateRoute>} />
                 <Route path="/booking/:id" element={<PrivateRoute><BookingPage /></PrivateRoute>} />
                 <Route path="/booking/door/:id" element={<PrivateRoute><BookingPage /></PrivateRoute>} />

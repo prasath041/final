@@ -84,48 +84,21 @@ const Checkout = () => {
 
     try {
       // Create bookings for each cart item
-      const bookingIds = [];
-
       for (const item of cartItems) {
         const deliveryDate = new Date();
         deliveryDate.setDate(deliveryDate.getDate() + 7); // 7 days delivery
 
-        const bookingResponse = await bookingAPI.create({
+        await bookingAPI.create({
           furniture: item._id,
           quantity: item.quantity,
           deliveryDate: deliveryDate.toISOString(),
           deliveryAddress: `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}, ${shippingInfo.country}`,
           notes: `Payment Method: ${paymentInfo.method}`
         });
-
-        if (bookingResponse.data.data) {
-          bookingIds.push(bookingResponse.data.data._id);
-        }
       }
 
-      // For COD, mark bookings as confirmed without payment
-      if (paymentInfo.method === 'cod') {
-        clearCart();
-        navigate('/order-success', {
-          state: {
-            paymentMethod: 'cod',
-            amount: total + 10 // Add COD fee
-          }
-        });
-      } else {
-        // For card/online payment, redirect to payment page
-        const finalTotal = total + (paymentInfo.method === 'cod' ? 10 : 0);
-
-        navigate('/payment', {
-          state: {
-            amount: finalTotal,
-            bookingIds: bookingIds,
-            items: cartItems,
-            shippingAddress: `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}, ${shippingInfo.country}`,
-            clearCart: clearCart
-          }
-        });
-      }
+      clearCart();
+      navigate('/order-success');
     } catch (err) {
       setError(err.response?.data?.message || 'Order placement failed. Please try again.');
     } finally {

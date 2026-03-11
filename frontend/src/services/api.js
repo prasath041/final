@@ -194,13 +194,4 @@ export const cncAPI = {
   getStats: () => api.get('/cnc/stats')
 };
 
-// Payment API (Razorpay)
-export const paymentAPI = {
-  getRazorpayKey: () => api.get('/payment/key'),
-  createOrder: (data) => api.post('/payment/create-order', data),
-  verifyPayment: (data) => api.post('/payment/verify', data),
-  paymentFailure: (data) => api.post('/payment/failure', data),
-  getPaymentDetails: (paymentId) => api.get(`/payment/${paymentId}`)
-};
-
 export default api;

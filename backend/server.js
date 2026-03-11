@@ -2,89 +2,118 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const path = require('path');
 
 // Load environment variables
 dotenv.config();
 
-// Import routes
-const authRoutes = require('./routes/authRoutes');
-const furnitureRoutes = require('./routes/furnitureRoutes');
-const categoryRoutes = require('./routes/categoryRoutes');
-const bookingRoutes = require('./routes/bookingRoutes');
-const userRoutes = require('./routes/userRoutes');
-const woodRoutes = require('./routes/woodRoutes');
-const doorRoutes = require('./routes/doorRoutes');
-const windowRoutes = require('./routes/windowRoutes');
-const lockerRoutes = require('./routes/lockerRoutes');
-const uploadRoutes = require('./routes/uploadRoutes');
-const orderRoutes = require('./routes/orderRoutes');
-const analyticsRoutes = require('./routes/analyticsRoutes');
-const deliveryRoutes = require('./routes/deliveryRoutes');
-const shopkeeperRoutes = require('./routes/shopkeeperRoutes');
-const paymentRoutes = require('./routes/paymentRoutes');
-
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files statically
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// MongoDB connection with caching for serverless
+let isConnected = false;
 
-// Database connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('✅ MongoDB connected successfully'))
-.catch((err) => console.error('❌ MongoDB connection error:', err));
+const connectDB = async () => {
+  if (isConnected && mongoose.connection.readyState === 1) {
+    return;
+  }
+  
+  if (!process.env.MONGODB_URI) {
+    console.error('❌ MONGODB_URI environment variable not set');
+    return;
+  }
+  
+  try {
+    mongoose.set('strictQuery', false);
+    const db = await mongoose.connect(process.env.MONGODB_URI, {
+      bufferCommands: false,
+    });
+    isConnected = db.connections[0].readyState === 1;
+    console.log('✅ MongoDB connected successfully');
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err.message);
+    isConnected = false;
+  }
+};
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/furniture', furnitureRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/bookings', bookingRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/woods', woodRoutes);
-app.use('/api/doors', doorRoutes);
-app.use('/api/windows', windowRoutes);
-app.use('/api/lockers', lockerRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/delivery', deliveryRoutes);
-app.use('/api/shopkeeper', shopkeeperRoutes);
-app.use('/api/payment', paymentRoutes);
+// Root route (before DB middleware)
+app.get('/', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Welcome to FurnitureHub API',
+    version: '1.0.0'
+  });
+});
 
-// Health check route
+// Health check route (before DB middleware)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'FurnitureHub API is running' });
 });
 
+// Middleware to ensure DB connection for each request (serverless-friendly)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('Database middleware error:', err.message);
+    next();
+  }
+});
+
+// Lazy load routes to catch import errors
+const loadRoute = (routePath) => {
+  try {
+    return require(routePath);
+  } catch (err) {
+    console.error(`Failed to load route ${routePath}:`, err.message);
+    const router = express.Router();
+    router.all('*', (req, res) => {
+      res.status(500).json({ success: false, message: `Route module error: ${err.message}` });
+    });
+    return router;
+  }
+};
+
+// Routes
+app.use('/api/auth', loadRoute('./routes/authRoutes'));
+app.use('/api/furniture', loadRoute('./routes/furnitureRoutes'));
+app.use('/api/categories', loadRoute('./routes/categoryRoutes'));
+app.use('/api/bookings', loadRoute('./routes/bookingRoutes'));
+app.use('/api/users', loadRoute('./routes/userRoutes'));
+app.use('/api/woods', loadRoute('./routes/woodRoutes'));
+app.use('/api/doors', loadRoute('./routes/doorRoutes'));
+app.use('/api/windows', loadRoute('./routes/windowRoutes'));
+app.use('/api/lockers', loadRoute('./routes/lockerRoutes'));
+app.use('/api/upload', loadRoute('./routes/uploadRoutes'));
+app.use('/api/orders', loadRoute('./routes/orderRoutes'));
+app.use('/api/analytics', loadRoute('./routes/analyticsRoutes'));
+app.use('/api/delivery', loadRoute('./routes/deliveryRoutes'));
+app.use('/api/shopkeeper', loadRoute('./routes/shopkeeperRoutes'));
+
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Error:', err.message);
   res.status(500).json({ 
     success: false, 
     message: 'Something went wrong!', 
-    error: process.env.NODE_ENV === 'development' ? err.message : {} 
+    error: err.message 
   });
 });
 
-const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+// Export for Vercel serverless
+module.exports = app;
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.log(`⚠️  Port ${PORT} is already in use. Server may already be running.`);
-    console.log(`   Try: taskkill /F /IM node.exe (Windows) or killall node (Mac/Linux)`);
-    process.exit(1);
-  } else {
-    throw err;
-  }
-});
+// Only listen when running locally (not on Vercel)
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
+}

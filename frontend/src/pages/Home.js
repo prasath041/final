@@ -85,7 +85,7 @@ const Home = () => {
       {/* Hero Section */}
       <section className="hero">
         <div className="hero-content">
-          <h1>Welcome to Shree Vasantham Trimpers</h1>
+          <h1>Welcome to Sri Vasantham Trimbers</h1>
           <p>Premium Wood Doors, Windows & Quality Furniture</p>
           <div className="hero-buttons">
             <Link to="/products?type=doors" className="btn-primary">
